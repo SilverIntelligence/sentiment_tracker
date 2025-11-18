@@ -5,7 +5,8 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api import api_router
 from app.core.config import get_settings
@@ -93,3 +94,9 @@ async def healthz():
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
