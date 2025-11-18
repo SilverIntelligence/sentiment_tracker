@@ -29,14 +29,26 @@ class JobScheduler:
         logger.info("Scheduling periodic jobs...")
 
         # Schedule ingestion jobs
-        # These will be implemented in the ingestion module
-        # self.queue.enqueue_in(timedelta(seconds=60), 'app.workers.ingestion.ingest_posts')
-        # self.queue.enqueue_in(timedelta(seconds=30), 'app.workers.ingestion.ingest_comments')
+        from app.workers.ingestion import ingest_comments, ingest_posts
 
-        # Schedule aggregation jobs
+        # Ingest posts every 60 seconds
+        self.queue.enqueue_in(
+            timedelta(seconds=self.settings.ingestion_interval_posts),
+            ingest_posts,
+            limit=self.settings.batch_size,
+        )
+
+        # Ingest comments every 30 seconds
+        self.queue.enqueue_in(
+            timedelta(seconds=self.settings.ingestion_interval_comments),
+            ingest_comments,
+            limit=self.settings.batch_size,
+        )
+
+        # Schedule aggregation jobs (to be implemented)
         # self.queue.enqueue_in(timedelta(minutes=5), 'app.workers.aggregation.compute_windows')
 
-        # Schedule price updates
+        # Schedule price updates (to be implemented)
         # self.queue.enqueue_in(timedelta(minutes=1), 'app.workers.prices.price_pull')
 
         logger.info("Jobs scheduled successfully")
