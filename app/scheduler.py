@@ -85,6 +85,29 @@ class JobScheduler:
             price_pull,
         )
 
+        # Schedule daily thread (13:00 ET = 18:00 UTC approximately)
+        # This is a simple version; production would use proper timezone handling
+        from app.workers.publishing import post_daily_thread
+
+        now = datetime.utcnow()
+        # Calculate time until next 18:00 UTC
+        target_hour = 18
+        if now.hour >= target_hour:
+            # Schedule for tomorrow
+            next_run = datetime(now.year, now.month, now.day, target_hour, 0, 0) + timedelta(
+                days=1
+            )
+        else:
+            # Schedule for today
+            next_run = datetime(now.year, now.month, now.day, target_hour, 0, 0)
+
+        delay = (next_run - now).total_seconds()
+
+        self.queue.enqueue_in(
+            timedelta(seconds=delay),
+            post_daily_thread,
+        )
+
         logger.info("Jobs scheduled successfully")
 
     def run(self):
