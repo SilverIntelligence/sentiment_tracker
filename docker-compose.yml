@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentiment_postgres
+    environment:
+      POSTGRES_USER: sentiment
+      POSTGRES_PASSWORD: sentiment
+      POSTGRES_DB: sentiment_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentiment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: sentiment_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Web Service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment_web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://sentiment:sentiment@postgres:5432/sentiment_tracker
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # RQ Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment_worker
+    command: python -m app.worker
+    environment:
+      - DATABASE_URL=postgresql://sentiment:sentiment@postgres:5432/sentiment_tracker
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # RQ Scheduler (for cron jobs)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment_scheduler
+    command: python -m app.scheduler
+    environment:
+      - DATABASE_URL=postgresql://sentiment:sentiment@postgres:5432/sentiment_tracker
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
