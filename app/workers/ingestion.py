@@ -10,6 +10,7 @@ from app.db.database import SessionLocal
 from app.db.redis_client import get_redis
 from app.models import Comment as CommentModel
 from app.models import Post as PostModel
+from app.nlp import EntityExtractor, SentimentAnalyzer, TextProcessor
 from app.reddit import RedditClient
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,14 @@ def set_last_ingestion_time(key: str, timestamp: datetime) -> None:
     r.set(key, timestamp.isoformat())
 
 
-def upsert_post(db: Session, submission) -> PostModel:
+def upsert_post(db: Session, submission, process_nlp: bool = True) -> PostModel:
     """
     Insert or update a post in the database.
 
     Args:
         db: Database session
         submission: PRAW submission object
+        process_nlp: Whether to process entities and sentiment
 
     Returns:
         PostModel instance
@@ -45,6 +47,28 @@ def upsert_post(db: Session, submission) -> PostModel:
 
     # Check if post exists
     existing = db.query(PostModel).filter(PostModel.post_id == post_id).first()
+
+    # Combine title and selftext for analysis
+    full_text = f"{submission.title}\n{submission.selftext or ''}"
+
+    # Process NLP if requested
+    entities_json = None
+    sentiment_score = None
+
+    if process_nlp:
+        try:
+            # Extract entities
+            extractor = EntityExtractor()
+            entities = list(extractor.extract_unique(full_text))
+            entities_json = {"entities": entities} if entities else None
+
+            # Analyze sentiment
+            analyzer = SentimentAnalyzer()
+            sentiment = analyzer.analyze(full_text, entities)
+            sentiment_score = sentiment["adjusted_compound"]
+
+        except Exception as e:
+            logger.error(f"Error processing NLP for post {post_id}: {e}")
 
     post_data = {
         "post_id": post_id,
@@ -58,6 +82,9 @@ def upsert_post(db: Session, submission) -> PostModel:
         "url": submission.url,
         "is_self": submission.is_self,
         "removed": submission.removed_by_category is not None,
+        "entities": entities_json,
+        "sentiment": sentiment_score,
+        "processed_at": datetime.utcnow(),
     }
 
     if existing:
@@ -78,7 +105,9 @@ def upsert_post(db: Session, submission) -> PostModel:
         return post
 
 
-def upsert_comment(db: Session, comment_obj, post_id: str) -> CommentModel:
+def upsert_comment(
+    db: Session, comment_obj, post_id: str, process_nlp: bool = True
+) -> CommentModel:
     """
     Insert or update a comment in the database.
 
@@ -86,6 +115,7 @@ def upsert_comment(db: Session, comment_obj, post_id: str) -> CommentModel:
         db: Database session
         comment_obj: PRAW comment object
         post_id: Parent post ID
+        process_nlp: Whether to process entities and sentiment
 
     Returns:
         CommentModel instance
@@ -97,6 +127,25 @@ def upsert_comment(db: Session, comment_obj, post_id: str) -> CommentModel:
         db.query(CommentModel).filter(CommentModel.comment_id == comment_id).first()
     )
 
+    # Process NLP if requested
+    entities_json = None
+    sentiment_score = None
+
+    if process_nlp:
+        try:
+            # Extract entities
+            extractor = EntityExtractor()
+            entities = list(extractor.extract_unique(comment_obj.body))
+            entities_json = {"entities": entities} if entities else None
+
+            # Analyze sentiment
+            analyzer = SentimentAnalyzer()
+            sentiment = analyzer.analyze(comment_obj.body, entities)
+            sentiment_score = sentiment["adjusted_compound"]
+
+        except Exception as e:
+            logger.error(f"Error processing NLP for comment {comment_id}: {e}")
+
     comment_data = {
         "comment_id": comment_id,
         "post_id": post_id,
@@ -104,6 +153,9 @@ def upsert_comment(db: Session, comment_obj, post_id: str) -> CommentModel:
         "created_utc": datetime.fromtimestamp(comment_obj.created_utc),
         "body": comment_obj.body,
         "score": comment_obj.score,
+        "sentiment": sentiment_score,
+        "entities": entities_json,
+        "processed_at": datetime.utcnow(),
     }
 
     if existing:

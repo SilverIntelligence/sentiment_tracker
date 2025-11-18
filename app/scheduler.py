@@ -29,6 +29,10 @@ class JobScheduler:
         logger.info("Scheduling periodic jobs...")
 
         # Schedule ingestion jobs
+        from app.workers.aggregation import (
+            compute_daily_aggregates,
+            compute_hourly_aggregates,
+        )
         from app.workers.ingestion import ingest_comments, ingest_posts
 
         # Ingest posts every 60 seconds
@@ -45,8 +49,33 @@ class JobScheduler:
             limit=self.settings.batch_size,
         )
 
-        # Schedule aggregation jobs (to be implemented)
-        # self.queue.enqueue_in(timedelta(minutes=5), 'app.workers.aggregation.compute_windows')
+        # Schedule aggregation jobs
+        # 1h rolling window every 5 minutes
+        self.queue.enqueue_in(
+            timedelta(minutes=5),
+            compute_hourly_aggregates,
+            hours=1,
+        )
+
+        # 24h rolling window every 15 minutes
+        self.queue.enqueue_in(
+            timedelta(minutes=15),
+            compute_hourly_aggregates,
+            hours=24,
+        )
+
+        # 7d rolling window every 30 minutes
+        self.queue.enqueue_in(
+            timedelta(minutes=30),
+            compute_hourly_aggregates,
+            hours=168,
+        )
+
+        # Daily aggregates once per day
+        self.queue.enqueue_in(
+            timedelta(hours=24),
+            compute_daily_aggregates,
+        )
 
         # Schedule price updates (to be implemented)
         # self.queue.enqueue_in(timedelta(minutes=1), 'app.workers.prices.price_pull')
