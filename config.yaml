@@ -1,0 +1,91 @@
+# Sentiment Tracker Configuration
+
+# Subreddits to monitor
+subreddits:
+  - wallstreetsilver
+  - gold
+  - silverbugs
+
+# Sentiment windows (in hours)
+windows:
+  - 1    # 1 hour
+  - 24   # 24 hours
+  - 168  # 7 days
+
+# Entity vocabulary
+entities:
+  metals:
+    gold:
+      - gold
+      - xau
+      - au
+      - bullion
+      - "gold coin"
+      - "gold bar"
+      - "oz gold"
+    silver:
+      - silver
+      - xag
+      - ag
+      - "silver eagle"
+      - ase
+      - "90%"
+      - "junk silver"
+
+  instruments:
+    etfs:
+      - SLV
+      - GLD
+      - PSLV
+      - PHYS
+      - IAU
+    futures:
+      - GC
+      - SI
+    miners:
+      - PAAS
+      - AG
+      - AEM
+      - NEM
+      - FSM
+      - EXK
+      - MAG
+      - HL
+      - CDE
+
+# Price symbols
+price_symbols:
+  - XAUUSD
+  - XAGUSD
+  - GC=F   # Gold futures
+  - SI=F   # Silver futures
+
+# Sentiment thresholds
+sentiment:
+  bull_threshold: 0.2
+  bear_threshold: -0.2
+
+# Sarcasm/meme phrases to dampen
+noise_patterns:
+  - "to the moon"
+  - "diamond hands"
+  - "stonks"
+  - "tendies"
+  - "apes together"
+
+# Blocklist (will be managed via admin UI too)
+blocklist:
+  phrases: []
+  authors: []
+
+# Publishing schedule
+publishing:
+  daily_digest:
+    enabled: true
+    time: "13:00"  # ET
+    timezone: "America/New_York"
+
+# Rate limits
+rate_limits:
+  reddit_requests_per_minute: 60
+  price_api_requests_per_minute: 10
