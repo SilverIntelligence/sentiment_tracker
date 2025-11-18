@@ -2,14 +2,15 @@
 
 from fastapi import APIRouter
 
-from app.api import endpoints
+from app.api.endpoints import admin, leaderboard, posts, sentiment, summary
 
 api_router = APIRouter()
 
-# Include endpoint routers (will be added as we build features)
-# api_router.include_router(endpoints.summary.router, tags=["summary"])
-# api_router.include_router(endpoints.sentiment.router, tags=["sentiment"])
-# api_router.include_router(endpoints.posts.router, tags=["posts"])
-# api_router.include_router(endpoints.admin.router, tags=["admin"])
+# Include endpoint routers
+api_router.include_router(summary.router, tags=["summary"])
+api_router.include_router(sentiment.router, tags=["sentiment"])
+api_router.include_router(posts.router, tags=["posts"])
+api_router.include_router(leaderboard.router, tags=["leaderboard"])
+api_router.include_router(admin.router, tags=["admin"])
 
 __all__ = ["api_router"]
