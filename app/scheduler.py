@@ -77,8 +77,13 @@ class JobScheduler:
             compute_daily_aggregates,
         )
 
-        # Schedule price updates (to be implemented)
-        # self.queue.enqueue_in(timedelta(minutes=1), 'app.workers.prices.price_pull')
+        # Schedule price updates every minute
+        from app.workers.prices import price_pull
+
+        self.queue.enqueue_in(
+            timedelta(minutes=1),
+            price_pull,
+        )
 
         logger.info("Jobs scheduled successfully")
 
